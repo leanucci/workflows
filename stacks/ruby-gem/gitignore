@@ -1,0 +1,15 @@
+/.bundle/
+/vendor/bundle/
+/pkg/
+/coverage/
+*.gem
+.rspec_status
+
+# Certificates and keys. Never commit them.
+*.pem
+*.key
+*.crt
+*-pkey
+*-cert
+*-csr
+*-req

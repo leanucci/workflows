@@ -1,0 +1,114 @@
+# Build agent.
+#
+# Two modes:
+# - push to main: find the new spec files and start one build run for each,
+#   with a workflow_dispatch event. The Claude action does not support push events.
+# - workflow_dispatch with a spec path: run the build agent on that spec.
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      spec:
+        description: "Spec file to build. Empty on push events."
+        type: string
+        default: ""
+      model:
+        type: string
+        default: claude-opus-5-5
+      max_turns:
+        type: number
+        default: 150
+      kit_repo:
+        type: string
+        default: leanucci/workflows
+      kit_ref:
+        type: string
+        default: v1
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+
+jobs:
+  dispatch:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Start a build for each new spec
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event.before }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "No previous commit. Nothing to build."
+            exit 0
+          fi
+          # WORKFLOW_REF is "owner/repo/.github/workflows/<file>@<ref>".
+          caller="$(basename "${WORKFLOW_REF%@*}")"
+          git diff --name-only --diff-filter=A "$BEFORE" "$GITHUB_SHA" -- 'specs/[0-9]*.md' |
+            while read -r spec; do
+              [ -n "$spec" ] || continue
+              echo "Starting build for $spec"
+              gh workflow run "$caller" --ref "${{ github.event.repository.default_branch }}" -f spec="$spec"
+            done
+
+  build:
+    if: github.event_name == 'workflow_dispatch' && inputs.spec != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: build-${{ inputs.spec }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check the spec file
+        env:
+          SPEC: ${{ inputs.spec }}
+        run: |
+          case "$SPEC" in
+            specs/[0-9]*.md) ;;
+            *) echo "Spec path must match specs/NNN-name.md: $SPEC"; exit 1 ;;
+          esac
+          test -f "$SPEC" || { echo "Spec file not found: $SPEC"; exit 1; }
+
+      - name: Load prompts
+        id: prompt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          fetch() { gh api "repos/${{ inputs.kit_repo }}/contents/prompts/$1?ref=${{ inputs.kit_ref }}" -H "Accept: application/vnd.github.raw"; }
+          {
+            echo 'text<<__PROMPT_EOF__'
+            fetch common.md
+            echo
+            fetch build.md
+            echo
+            echo '__PROMPT_EOF__'
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            ${{ steps.prompt.outputs.text }}
+
+            ## Task Input
+
+            - Repository: ${{ github.repository }}
+            - Base branch: ${{ github.event.repository.default_branch }}
+            - Spec file: ${{ inputs.spec }}
+          claude_args: |
+            --model ${{ inputs.model }}
+            --max-turns ${{ inputs.max_turns }}
+            --allowedTools Bash,Read,Write,Edit,Glob,Grep

@@ -1,0 +1,94 @@
+# Review agent.
+#
+# Runs on build pull requests (branch "build/*") when they open or change.
+# The agent posts one review and sets one verdict label:
+# "review-passed" or "changes-requested".
+name: Review
+
+on:
+  workflow_call:
+    inputs:
+      model:
+        type: string
+        default: claude-sonnet-5-5
+      max_turns:
+        type: number
+        default: 60
+      kit_repo:
+        type: string
+        default: leanucci/workflows
+      kit_ref:
+        type: string
+        default: v1
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+
+jobs:
+  review:
+    if: >-
+      startsWith(github.event.pull_request.head.ref, 'build/') &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !github.event.pull_request.draft &&
+      !contains(github.event.pull_request.labels.*.name, 'needs-human')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Clear the previous verdict
+        run: |
+          gh pr edit "$PR" --remove-label review-passed --remove-label changes-requested || true
+
+      - name: Load prompts
+        id: prompt
+        run: |
+          fetch() { gh api "repos/${{ inputs.kit_repo }}/contents/prompts/$1?ref=${{ inputs.kit_ref }}" -H "Accept: application/vnd.github.raw"; }
+          {
+            echo 'text<<__PROMPT_EOF__'
+            fetch common.md
+            echo
+            fetch review.md
+            echo
+            echo '__PROMPT_EOF__'
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: claude
+          prompt: |
+            ${{ steps.prompt.outputs.text }}
+
+            ## Task Input
+
+            - Repository: ${{ github.repository }}
+            - Pull request: ${{ github.event.pull_request.number }}
+            - Base branch: ${{ github.event.pull_request.base.ref }}
+          claude_args: |
+            --model ${{ inputs.model }}
+            --max-turns ${{ inputs.max_turns }}
+            --allowedTools Read,Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*),Bash(gh pr edit:*),Bash(gh api:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)
+
+      - name: Ask the owner for review when the review passes
+        run: |
+          labels="$(gh pr view "$PR" --json labels --jq '.labels[].name')"
+          if echo "$labels" | grep -qx review-passed; then
+            gh pr edit "$PR" --add-reviewer "${{ github.repository_owner }}"
+          elif ! echo "$labels" | grep -qx changes-requested; then
+            echo "The review agent did not set a verdict label."
+            gh pr edit "$PR" --add-label needs-human --add-reviewer "${{ github.repository_owner }}"
+            exit 1
+          fi

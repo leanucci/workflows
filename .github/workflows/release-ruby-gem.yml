@@ -1,0 +1,65 @@
+# Release for Ruby gems.
+#
+# Publishes the gem only when the gemspec version has no "v<version>" tag yet.
+# Then it creates the tag and a GitHub release.
+name: Release Ruby Gem
+
+on:
+  workflow_call:
+    inputs:
+      ruby_version:
+        type: string
+        default: "3.3"
+      test_command:
+        type: string
+        default: bundle exec rspec
+    secrets:
+      RUBYGEMS_API_KEY:
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ inputs.ruby_version }}
+          bundler-cache: true
+
+      - name: Check the version
+        id: version
+        run: |
+          version="$(ruby -e 'puts Gem::Specification.load(Dir["*.gemspec"].first).version')"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then
+            echo "Tag v$version exists. Nothing to release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run tests
+        if: steps.version.outputs.release == 'true'
+        run: ${{ inputs.test_command }}
+
+      - name: Build and publish the gem
+        if: steps.version.outputs.release == 'true'
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+        run: |
+          gem build ./*.gemspec
+          gem push ./*.gem
+
+      - name: Create the tag and the GitHub release
+        if: steps.version.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+          gh release create "v$VERSION" --title "v$VERSION" --generate-notes

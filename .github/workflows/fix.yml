@@ -1,0 +1,101 @@
+# Fix agent.
+#
+# Runs when a build pull request gets the "changes-requested" label.
+# Counts the rounds with "review-round-N" labels. After max_rounds,
+# it stops and adds "needs-human".
+name: Fix
+
+on:
+  workflow_call:
+    inputs:
+      model:
+        type: string
+        default: claude-opus-5-5
+      max_turns:
+        type: number
+        default: 100
+      max_rounds:
+        type: number
+        default: 3
+      kit_repo:
+        type: string
+        default: leanucci/workflows
+      kit_ref:
+        type: string
+        default: v1
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+
+jobs:
+  fix:
+    if: >-
+      github.event.label.name == 'changes-requested' &&
+      startsWith(github.event.pull_request.head.ref, 'build/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: fix-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      MAX_ROUNDS: ${{ inputs.max_rounds }}
+    steps:
+      - name: Count the review rounds
+        id: round
+        run: |
+          done_rounds="$(gh pr view "$PR" --json labels --jq '[.labels[].name | select(startswith("review-round-"))] | length')"
+          if [ "$done_rounds" -ge "$MAX_ROUNDS" ]; then
+            gh pr edit "$PR" --add-label needs-human --remove-label changes-requested --add-reviewer "${{ github.repository_owner }}"
+            gh pr comment "$PR" --body "The fix loop stopped after $done_rounds rounds. The owner must decide."
+            echo "stop=true" >> "$GITHUB_OUTPUT"
+          else
+            next=$((done_rounds + 1))
+            gh pr edit "$PR" --add-label "review-round-$next"
+            echo "stop=false" >> "$GITHUB_OUTPUT"
+            echo "number=$next" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.round.outputs.stop == 'false'
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Load prompts
+        if: steps.round.outputs.stop == 'false'
+        id: prompt
+        run: |
+          fetch() { gh api "repos/${{ inputs.kit_repo }}/contents/prompts/$1?ref=${{ inputs.kit_ref }}" -H "Accept: application/vnd.github.raw"; }
+          {
+            echo 'text<<__PROMPT_EOF__'
+            fetch common.md
+            echo
+            fetch fix.md
+            echo
+            echo '__PROMPT_EOF__'
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: anthropics/claude-code-action@v1
+        if: steps.round.outputs.stop == 'false'
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: claude
+          prompt: |
+            ${{ steps.prompt.outputs.text }}
+
+            ## Task Input
+
+            - Repository: ${{ github.repository }}
+            - Pull request: ${{ github.event.pull_request.number }}
+            - Branch: ${{ github.event.pull_request.head.ref }}
+            - Round: ${{ steps.round.outputs.number }} of ${{ inputs.max_rounds }}
+          claude_args: |
+            --model ${{ inputs.model }}
+            --max-turns ${{ inputs.max_turns }}
+            --allowedTools Bash,Read,Write,Edit,Glob,Grep
