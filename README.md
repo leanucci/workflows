@@ -24,10 +24,13 @@ Shared agent workflows for my projects. The process is in [APPROACH.md](https://
 | `.github/workflows/ci-node.yml` | Node tests: lint, type check, test, build | Reference |
 | `prompts/` | Agent instructions | Reference |
 | `skeleton/` | Start files for every project | Copy |
-| `stacks/<stack>/` | Start files for one stack | Copy |
+| `stacks/<stack>/` | Start files, rules, and required checks for one stack | Copy |
+| `skills/` | Claude Code skills: `/spec` and `/new-project` | Link into `~/.claude/skills/` |
 | `bin/setup-repo` | Labels, workflow permissions, and branch protection | Run one time |
 
 ## New Project
+
+Use the `/new-project` skill. It does these steps:
 
 1. Create the repo and clone it into a subfolder of `/Users/lean/work`.
 2. Copy `skeleton/` into the repo, including `.github/`.
@@ -40,8 +43,20 @@ Shared agent workflows for my projects. The process is in [APPROACH.md](https://
 6. Set the secrets:
    - `gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo <owner/repo>`. The value comes from `claude setup-token`. It uses the owner's Claude subscription. As an alternative, set `ANTHROPIC_API_KEY` to use API billing.
    - Stack secrets, for example `gh secret set RUBYGEMS_API_KEY`.
-7. Run `bin/setup-repo <owner/repo> "<required check>"`.
+7. Run `bin/setup-repo <owner/repo>` with the checks from `stacks/<stack>/required-checks`.
 8. Make sure that the [Claude GitHub App](https://github.com/apps/claude) can access the repo.
+
+## Skills
+
+Install the skills one time:
+
+```
+ln -s /Users/lean/work/workflows/skills/spec ~/.claude/skills/spec
+ln -s /Users/lean/work/workflows/skills/new-project ~/.claude/skills/new-project
+```
+
+- `/spec`: turns an idea into a spec and pushes it on a `spec/` branch.
+- `/new-project`: creates a project that is ready for the cycle.
 
 ## Setup Notes
 
