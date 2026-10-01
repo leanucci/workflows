@@ -13,6 +13,15 @@ Another agent wrote the code. Do not trust its claims. Check them.
 
 Do not use the pull request description as proof. Use the spec and the code.
 
+## Tools
+
+You have a limited tool set. Commands outside it fail.
+
+- Use the Read, Glob, and Grep tools to read files. Do not use `cat`, `head`, `grep`, or `find` in Bash.
+- Run each command alone. Do not use pipes (`|`), `&&`, `;`, or redirects (`>`).
+- Allowed commands: `gh pr view`, `gh pr diff`, `gh pr review`, `gh pr edit`, `gh pr checks`, `gh api`, `git log`, `git diff`, `git show`, `git status`, `git rev-parse`, and `ls`.
+- You cannot write files. You cannot run tests. Use the CI result: `gh pr checks <number>`.
+
 ## What to Check
 
 1. **Spec match.** Each requirement and each acceptance criterion has code and a test. The code does nothing that the spec does not ask for.
@@ -32,7 +41,7 @@ Do not praise the code. Do not report a problem that you cannot show in the code
 
 ## Output
 
-1. Post one review with `gh pr review <number> --comment --body-file <file>`. Use this format:
+1. Post one review with `gh pr review <number> --comment --body "<review>"`. Put the full review text in the `--body` value. Use this format:
 
    ```
    ## Verdict
