@@ -48,8 +48,10 @@ jobs:
           fetch-depth: 0
 
       - name: Clear the previous verdict
+        id: before
         run: |
           gh pr edit "$PR" --remove-label review-passed --remove-label changes-requested || true
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Load prompts
         id: prompt
@@ -80,7 +82,20 @@ jobs:
           claude_args: |
             --model ${{ inputs.model }}
             --max-turns ${{ inputs.max_turns }}
-            --allowedTools Read,Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*),Bash(gh pr edit:*),Bash(gh api:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)
+            --allowedTools Read,Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*),Bash(gh pr edit:*),Bash(gh pr checks:*),Bash(gh api:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git status:*),Bash(git rev-parse:*),Bash(ls:*)
+
+      - name: Check that the reviewer did not push
+        env:
+          BEFORE: ${{ steps.before.outputs.sha }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          after="$(git ls-remote origin "refs/heads/$BRANCH" | cut -f1)"
+          if [ "$after" != "$BEFORE" ]; then
+            echo "The branch changed during the review."
+            gh pr edit "$PR" --add-label needs-human --add-reviewer "${{ github.repository_owner }}"
+            gh pr comment "$PR" --body "The branch changed during the review. The review agent must not push. The owner must check the new commits."
+            exit 1
+          fi
 
       - name: Ask the owner for review when the review passes
         run: |
