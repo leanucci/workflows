@@ -1,0 +1,55 @@
+# CI for Node projects: lint, type check, test, and build.
+#
+# Each step runs only when package.json has the script.
+# With no package.json (a new repo before the first build), the job passes.
+name: CI Node
+
+on:
+  workflow_call:
+    inputs:
+      node_version:
+        type: string
+        default: "24"
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for package.json
+        id: project
+        run: |
+          if [ -f package.json ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No package.json. Nothing to test."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.project.outputs.exists == 'true'
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - name: Install
+        if: steps.project.outputs.exists == 'true'
+        run: npm ci
+
+      - name: Lint
+        if: steps.project.outputs.exists == 'true'
+        run: npm run lint --if-present
+
+      - name: Type check
+        if: steps.project.outputs.exists == 'true'
+        run: npm run typecheck --if-present
+
+      - name: Test
+        if: steps.project.outputs.exists == 'true'
+        run: npm test --if-present
+
+      - name: Build
+        if: steps.project.outputs.exists == 'true'
+        run: npm run build --if-present
