@@ -42,6 +42,8 @@ jobs:
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
+      # The round counter runs before the checkout, so gh needs the repo name.
+      GH_REPO: ${{ github.repository }}
       PR: ${{ github.event.pull_request.number }}
       MAX_ROUNDS: ${{ inputs.max_rounds }}
     steps:
