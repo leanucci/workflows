@@ -11,8 +11,23 @@ The process is in `/Users/lean/work/portfolio/APPROACH.md`.
 
 ## Inputs
 
-- **Project:** the current repo, or a project name. Projects are in subfolders of `/Users/lean/work`. `/Users/lean/work/portfolio/PROJECTS.md` lists them.
+- **Project:** see "Find the Project" below.
 - **Idea:** what the user wants. It can be short.
+
+## Find the Project
+
+`/Users/lean/work/portfolio/PROJECTS.md` lists all projects. Use only projects with `Cycle: agent`.
+
+Use the first rule that gives one project:
+
+1. **Name.** The request names a project, for example "add sign-in to pomodoro".
+2. **Description.** The request matches the summary of exactly one project, for example "the timer app".
+3. **Session folder.** The session runs inside the local copy of a project.
+4. **Conversation.** Earlier messages in this session talk about one project.
+
+If no rule gives exactly one project, ask the user. List the projects with `Cycle: agent`, with their summaries. Do not guess.
+
+Before you write the spec, state the project in one line, for example "Project: pomodoro". Then the user can correct it.
 
 Ask a question only when you cannot write a testable spec without the answer. Otherwise, choose, and list the choice under "Notes".
 
