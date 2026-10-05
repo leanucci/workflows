@@ -6,8 +6,8 @@ Shared agent workflows for my projects. The process is in [APPROACH.md](https://
 
 1. **Spec:** An agent pushes `specs/NNN-name.md` on the branch `spec/NNN-name`. The spec workflow opens the PR as `github-actions[bot]` and requests the owner's review. The owner approves and merges.
 2. **Build:** The merge starts the build agent. It writes the code and opens a PR on the branch `build/NNN-name`.
-3. **Review:** The review agent reviews the PR. It adds `review-passed` or `changes-requested`.
-4. **Fix:** `changes-requested` starts the fix agent. It pushes fixes, and the push starts a new review. After 3 rounds, the PR gets `needs-human`.
+3. **Review:** The review agent reviews the PR. It adds `review-passed` or `changes-requested`. The default reviewer is Google Antigravity (Gemini). Set `reviewer: claude` in the caller to use Claude.
+4. **Fix:** `changes-requested` starts the fix agent. With Antigravity, `review.yml` calls `fix.yml` directly, because labels from `GITHUB_TOKEN` do not start workflows. It pushes fixes, and the push starts a new review. After 3 rounds, the PR gets `needs-human`.
 5. The owner gets a review request and merges.
 6. **Release:** The release workflow publishes when the version changes.
 
@@ -23,6 +23,7 @@ Shared agent workflows for my projects. The process is in [APPROACH.md](https://
 | `.github/workflows/release-ruby-gem.yml` | Gem release | Reference |
 | `.github/workflows/ci-node.yml` | Node tests: lint, type check, test, build | Reference |
 | `prompts/` | Agent instructions | Reference |
+| `scripts/review_antigravity.py` | Runs the Antigravity review | Reference |
 | `skeleton/` | Start files for every project | Copy |
 | `stacks/<stack>/` | Start files, rules, and required checks for one stack | Copy |
 | `skills/` | Claude Code skills: `/spec` and `/new-project` | Link into `~/.claude/skills/` |
@@ -42,6 +43,7 @@ Use the `/new-project` skill. It does these steps:
 5. Push to `main`.
 6. Set the secrets:
    - `gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo <owner/repo>`. The value comes from `claude setup-token`. It uses the owner's Claude subscription. As an alternative, set `ANTHROPIC_API_KEY` to use API billing.
+   - `gh secret set GEMINI_API_KEY --repo <owner/repo>`. The value is a Gemini API key from https://aistudio.google.com/apikey. The Antigravity reviewer uses it.
    - Stack secrets, for example `gh secret set RUBYGEMS_API_KEY`.
 7. Run `bin/setup-repo <owner/repo>` with the checks from `stacks/<stack>/required-checks`.
 8. Make sure that the [Claude GitHub App](https://github.com/apps/claude) can access the repo.
@@ -66,7 +68,8 @@ ln -s /Users/lean/work/workflows/skills/new-project ~/.claude/skills/new-project
 - **Branch protection.** A merge to `main` needs one approval and the required checks. Admins cannot bypass it. Bots open all PRs, so the owner can always approve. Agents never approve or merge.
 - **Workflow permissions.** `bin/setup-repo` lets workflows create PRs. GitHub has one setting for "create and approve", but no workflow here approves.
 - **CI on spec branches.** PRs that `GITHUB_TOKEN` opens do not start `pull_request` workflows. So CI also runs on push to `spec/**`, and its checks attach to the spec commit.
-- **Models.** Build and fix use `claude-opus-5-5`. Review uses `claude-sonnet-5-5`. A caller can change them with the `model` input.
+- **Models.** Build and fix use `claude-opus-5-5`. Review uses Google Antigravity with the SDK default Gemini model. A caller can change them with the `model` and `antigravity_model` inputs.
+- **Antigravity reviewer.** The SDK runs in read-only mode. It cannot change files or run commands. The agent returns its verdict as JSON, and the workflow posts the review with `GITHUB_TOKEN`.
 
 ## Versions
 
