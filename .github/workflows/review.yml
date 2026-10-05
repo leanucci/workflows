@@ -1,16 +1,31 @@
 # Review agent.
 #
 # Runs on build pull requests (branch "build/*") when they open or change.
-# The agent posts one review and sets one verdict label:
-# "review-passed" or "changes-requested".
+# Posts one review and sets one verdict label: "review-passed" or "changes-requested".
+#
+# Reviewers:
+# - antigravity (default): Google Antigravity SDK with Gemini, in read-only mode.
+#   The workflow posts the review with GITHUB_TOKEN. Labels from GITHUB_TOKEN do
+#   not start other workflows, so this workflow calls fix.yml itself.
+# - claude: Claude Code. The agent posts the review and sets the label with the
+#   Claude GitHub App token. The label starts fix.yml in the project.
 name: Review
 
 on:
   workflow_call:
     inputs:
+      reviewer:
+        description: "antigravity or claude"
+        type: string
+        default: antigravity
       model:
+        description: "Claude model, for reviewer claude"
         type: string
         default: claude-sonnet-5-5
+      antigravity_model:
+        description: "Gemini model, for reviewer antigravity. Empty means the SDK default."
+        type: string
+        default: ""
       max_turns:
         type: number
         default: 60
@@ -25,6 +40,8 @@ on:
         required: false
       CLAUDE_CODE_OAUTH_TOKEN:
         required: false
+      GEMINI_API_KEY:
+        required: false
 
 jobs:
   review:
@@ -38,6 +55,8 @@ jobs:
     concurrency:
       group: review-${{ github.event.pull_request.number }}
       cancel-in-progress: true
+    outputs:
+      verdict: ${{ steps.verdict.outputs.verdict }}
     env:
       GH_TOKEN: ${{ github.token }}
       PR: ${{ github.event.pull_request.number }}
@@ -55,34 +74,98 @@ jobs:
 
       - name: Load prompts
         id: prompt
+        env:
+          REVIEWER: ${{ inputs.reviewer }}
         run: |
-          fetch() { gh api "repos/${{ inputs.kit_repo }}/contents/prompts/$1?ref=${{ inputs.kit_ref }}" -H "Accept: application/vnd.github.raw"; }
+          case "$REVIEWER" in
+            antigravity|claude) ;;
+            *) echo "Unknown reviewer: $REVIEWER"; exit 1 ;;
+          esac
+          fetch() { gh api "repos/${{ inputs.kit_repo }}/contents/$1?ref=${{ inputs.kit_ref }}" -H "Accept: application/vnd.github.raw"; }
           {
             echo 'text<<__PROMPT_EOF__'
-            fetch common.md
+            fetch prompts/common.md
             echo
-            fetch review.md
+            fetch prompts/review.md
             echo
+            fetch "prompts/review-$REVIEWER.md"
+            echo
+            echo '## Task Input'
+            echo
+            echo "- Repository: ${{ github.repository }}"
+            echo "- Pull request: $PR"
+            echo "- Base branch: ${{ github.event.pull_request.base.ref }}"
             echo '__PROMPT_EOF__'
           } >> "$GITHUB_OUTPUT"
 
+      # Reviewer: claude
+
       - uses: anthropics/claude-code-action@v1
+        if: inputs.reviewer == 'claude'
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           allowed_bots: claude
-          prompt: |
-            ${{ steps.prompt.outputs.text }}
-
-            ## Task Input
-
-            - Repository: ${{ github.repository }}
-            - Pull request: ${{ github.event.pull_request.number }}
-            - Base branch: ${{ github.event.pull_request.base.ref }}
+          prompt: ${{ steps.prompt.outputs.text }}
           claude_args: |
             --model ${{ inputs.model }}
             --max-turns ${{ inputs.max_turns }}
             --allowedTools "Read,Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*),Bash(gh pr edit:*),Bash(gh pr checks:*),Bash(gh api:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git status:*),Bash(git rev-parse:*),Bash(ls:*)"
+
+      # Reviewer: antigravity
+
+      - uses: actions/setup-python@v5
+        if: inputs.reviewer == 'antigravity'
+        with:
+          python-version: "3.12"
+
+      - name: Prepare the review files
+        if: inputs.reviewer == 'antigravity'
+        env:
+          PROMPT_TEXT: ${{ steps.prompt.outputs.text }}
+        run: |
+          pip install --quiet google-antigravity
+          mkdir -p .review "$RUNNER_TEMP/review"
+          gh pr view "$PR" --json title,body --jq '"# " + .title + "\n\n" + .body' > .review/pr.md
+          gh pr diff "$PR" > .review/pr.diff
+          gh pr checks "$PR" > .review/checks.txt 2>&1 || true
+          printf '%s\n' "$PROMPT_TEXT" > "$RUNNER_TEMP/review/prompt.md"
+          gh api "repos/${{ inputs.kit_repo }}/contents/scripts/review_antigravity.py?ref=${{ inputs.kit_ref }}" \
+            -H "Accept: application/vnd.github.raw" > "$RUNNER_TEMP/review/review_antigravity.py"
+
+      - name: Run the Antigravity review
+        if: inputs.reviewer == 'antigravity'
+        id: agy
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AGY_MODEL: ${{ inputs.antigravity_model }}
+          PROMPT_FILE: ${{ runner.temp }}/review/prompt.md
+          BODY_FILE: ${{ runner.temp }}/review/body.md
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "The GEMINI_API_KEY secret is not set."
+            exit 1
+          fi
+          python "$RUNNER_TEMP/review/review_antigravity.py"
+
+      - name: Post the Antigravity review
+        if: inputs.reviewer == 'antigravity'
+        env:
+          VERDICT: ${{ steps.agy.outputs.verdict }}
+        run: |
+          {
+            cat "$RUNNER_TEMP/review/body.md"
+            echo
+            echo "_Reviewed by Google Antigravity._"
+          } > "$RUNNER_TEMP/review/post.md"
+          gh pr review "$PR" --comment --body-file "$RUNNER_TEMP/review/post.md"
+          if [ "$VERDICT" = pass ]; then
+            gh pr edit "$PR" --add-label review-passed
+          else
+            gh pr edit "$PR" --add-label changes-requested
+          fi
+
+      # Both reviewers
 
       - name: Check that the reviewer did not push
         env:
@@ -97,13 +180,27 @@ jobs:
             exit 1
           fi
 
-      - name: Ask the owner for review when the review passes
+      - name: Read the verdict
+        id: verdict
         run: |
           labels="$(gh pr view "$PR" --json labels --jq '.labels[].name')"
           if echo "$labels" | grep -qx review-passed; then
+            echo "verdict=pass" >> "$GITHUB_OUTPUT"
             gh pr edit "$PR" --add-reviewer "${{ github.repository_owner }}"
-          elif ! echo "$labels" | grep -qx changes-requested; then
+          elif echo "$labels" | grep -qx changes-requested; then
+            echo "verdict=changes-requested" >> "$GITHUB_OUTPUT"
+          else
             echo "The review agent did not set a verdict label."
             gh pr edit "$PR" --add-label needs-human --add-reviewer "${{ github.repository_owner }}"
             exit 1
           fi
+
+  fix:
+    needs: review
+    if: inputs.reviewer == 'antigravity' && needs.review.outputs.verdict == 'changes-requested'
+    uses: leanucci/workflows/.github/workflows/fix.yml@v1
+    with:
+      from_review: true
+      kit_repo: ${{ inputs.kit_repo }}
+      kit_ref: ${{ inputs.kit_ref }}
+    secrets: inherit

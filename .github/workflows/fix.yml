@@ -1,6 +1,7 @@
 # Fix agent.
 #
-# Runs when a build pull request gets the "changes-requested" label.
+# Runs when a build pull request gets the "changes-requested" label,
+# or when review.yml calls it directly (from_review: true).
 # Counts the rounds with "review-round-N" labels. After max_rounds,
 # it stops and adds "needs-human".
 name: Fix
@@ -8,6 +9,10 @@ name: Fix
 on:
   workflow_call:
     inputs:
+      from_review:
+        description: "True when review.yml calls this workflow after a review."
+        type: boolean
+        default: false
       model:
         type: string
         default: claude-opus-5-5
@@ -32,7 +37,7 @@ on:
 jobs:
   fix:
     if: >-
-      github.event.label.name == 'changes-requested' &&
+      (inputs.from_review || github.event.label.name == 'changes-requested') &&
       startsWith(github.event.pull_request.head.ref, 'build/') &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
