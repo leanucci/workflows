@@ -27,9 +27,7 @@ The stack must match a folder in `/Users/lean/work/workflows/stacks/`. If no fol
    - Run `git -C /Users/lean/work/workflows pull`.
    - `gh repo view leanucci/<name>` fails, so the name is free.
    - `/Users/lean/work/<name>` does not exist.
-   - `security find-generic-password -s claude-oauth-token > /dev/null` succeeds, so the Claude token exists.
-   - `security find-generic-password -s gemini-api-key > /dev/null` succeeds, so the Gemini key exists.
-   - Do not print the token or the key.
+   - `security find-generic-password -s claude-oauth-token > /dev/null` succeeds, so the token exists. Do not print the token.
 
 2. **Copy the files.** `K=/Users/lean/work/workflows`, `S=$K/stacks/<stack>`, `P=/Users/lean/work/<name>`.
    - `mkdir -p $P` and `cp -R $K/skeleton/. $P/`
@@ -52,8 +50,7 @@ The stack must match a folder in `/Users/lean/work/workflows/stacks/`. If no fol
 
 5. **Set the secrets.**
    - `security find-generic-password -s claude-oauth-token -w | gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo leanucci/<name>`
-   - `security find-generic-password -s gemini-api-key -w | gh secret set GEMINI_API_KEY --repo leanucci/<name>`
-   - Never print the token or the key. Never put them in a variable that you echo.
+   - Never print the token. Never put it in a variable that you echo.
    - Stack secrets, for example `RUBYGEMS_API_KEY`: you cannot set them. Give the user the command: `! gh secret set <NAME> --repo leanucci/<name>`.
 
 6. **Set the GitHub settings.**

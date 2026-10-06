@@ -18,16 +18,10 @@ on:
         description: "Spec file to build. Set only on workflow_dispatch."
         type: string
         default: ""
-      reviewer:
-        description: "antigravity or claude"
-        type: string
-        default: antigravity
     secrets:
       ANTHROPIC_API_KEY:
         required: false
       CLAUDE_CODE_OAUTH_TOKEN:
-        required: false
-      GEMINI_API_KEY:
         required: false
 
 jobs:
@@ -75,8 +69,6 @@ jobs:
   review:
     if: github.event_name == 'pull_request' && github.event.action != 'labeled'
     uses: leanucci/workflows/.github/workflows/review.yml@v1
-    with:
-      reviewer: ${{ inputs.reviewer }}
     secrets: inherit
 
   fix:
