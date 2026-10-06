@@ -1,18 +1,18 @@
 # Build agent.
 #
-# Two modes:
-# - push to main: find the new spec files and start one build run for each,
-#   with a workflow_dispatch event. The Claude action does not support push events.
-# - workflow_dispatch with a spec path: run the build agent on that spec.
+# Runs the build agent on one spec, on the current "build/*" branch.
+# The branch already contains the spec. The agent adds the code, pushes,
+# and opens one pull request with the spec and the code.
+# agent.yml calls this workflow on a workflow_dispatch event.
 name: Build
 
 on:
   workflow_call:
     inputs:
       spec:
-        description: "Spec file to build. Empty on push events."
+        description: "Spec file to build, for example specs/002-name.md."
         type: string
-        default: ""
+        required: true
       model:
         type: string
         default: claude-opus-5-5
@@ -32,39 +32,12 @@ on:
         required: false
 
 jobs:
-  dispatch:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Start a build for each new spec
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BEFORE: ${{ github.event.before }}
-          WORKFLOW_REF: ${{ github.workflow_ref }}
-        run: |
-          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-            echo "No previous commit. Nothing to build."
-            exit 0
-          fi
-          # WORKFLOW_REF is "owner/repo/.github/workflows/<file>@<ref>".
-          caller="$(basename "${WORKFLOW_REF%@*}")"
-          git diff --name-only --diff-filter=A "$BEFORE" "$GITHUB_SHA" -- 'specs/[0-9]*.md' |
-            while read -r spec; do
-              [ -n "$spec" ] || continue
-              echo "Starting build for $spec"
-              gh workflow run "$caller" --ref "${{ github.event.repository.default_branch }}" -f spec="$spec"
-            done
-
   build:
-    if: github.event_name == 'workflow_dispatch' && inputs.spec != ''
+    if: startsWith(github.ref_name, 'build/')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     concurrency:
-      group: build-${{ inputs.spec }}
+      group: build-${{ github.ref_name }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
@@ -100,7 +73,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # The dispatch job above starts this run with GITHUB_TOKEN.
+          # agent.yml starts this run with GITHUB_TOKEN.
           allowed_bots: github-actions
           prompt: |
             ${{ steps.prompt.outputs.text }}
@@ -109,6 +82,7 @@ jobs:
 
             - Repository: ${{ github.repository }}
             - Base branch: ${{ github.event.repository.default_branch }}
+            - Branch: ${{ github.ref_name }}
             - Spec file: ${{ inputs.spec }}
           claude_args: |
             --model ${{ inputs.model }}

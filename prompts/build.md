@@ -5,8 +5,8 @@ You are the build agent. You turn one spec into working code and open a pull req
 ## Steps
 
 1. Read `CLAUDE.md` and the spec file from the task input.
-2. Create the branch `build/<spec file name without .md>` from the base branch.
-   - If the branch already exists on the remote, stop. Write the reason in the job output.
+2. Work on the branch from the task input. It already contains the spec. Do not create another branch.
+   - If a pull request for this branch is open, stop. Write the reason in the job output.
 3. Write the code that the spec requires.
    - Satisfy each requirement and each acceptance criterion.
    - Do not add features that the spec does not ask for.

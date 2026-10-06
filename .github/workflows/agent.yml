@@ -1,0 +1,85 @@
+# Agent router.
+#
+# Projects call only this workflow, from one caller file (skeleton/.github/workflows/agent.yml).
+# The caller has all triggers and permissions, so changes here need no caller change.
+#
+# Events:
+# - push to "build/*" by a person: find the new spec and start the build with workflow_dispatch.
+#   The Claude action does not support push events.
+# - workflow_dispatch with a spec: run the build agent on the current branch.
+# - pull_request opened or changed: run the review agent.
+# - pull_request labeled: run the fix agent (when the label is "changes-requested").
+name: Agent
+
+on:
+  workflow_call:
+    inputs:
+      spec:
+        description: "Spec file to build. Set only on workflow_dispatch."
+        type: string
+        default: ""
+      reviewer:
+        description: "antigravity or claude"
+        type: string
+        default: antigravity
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+      GEMINI_API_KEY:
+        required: false
+
+jobs:
+  start-build:
+    if: >-
+      github.event_name == 'push' &&
+      startsWith(github.ref_name, 'build/') &&
+      github.actor != 'claude[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: ${{ github.ref_name }}
+      BASE: ${{ github.event.repository.default_branch }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Start the build for the new spec
+        run: |
+          if [ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            echo "A pull request for $BRANCH is open. The review handles new pushes."
+            exit 0
+          fi
+          specs="$(git diff --name-only --diff-filter=A "origin/$BASE...HEAD" -- 'specs/[0-9]*.md')"
+          count="$(printf '%s' "$specs" | grep -c . || true)"
+          if [ "$count" -ne 1 ]; then
+            echo "The branch must add exactly one spec file. It adds $count:"
+            printf '%s\n' "$specs"
+            exit 1
+          fi
+          # WORKFLOW_REF is "owner/repo/.github/workflows/<file>@<ref>".
+          caller="$(basename "${WORKFLOW_REF%@*}")"
+          echo "Starting the build for $specs on $BRANCH"
+          gh workflow run "$caller" --ref "$BRANCH" -f spec="$specs"
+
+  build:
+    if: github.event_name == 'workflow_dispatch' && inputs.spec != ''
+    uses: leanucci/workflows/.github/workflows/build.yml@v1
+    with:
+      spec: ${{ inputs.spec }}
+    secrets: inherit
+
+  review:
+    if: github.event_name == 'pull_request' && github.event.action != 'labeled'
+    uses: leanucci/workflows/.github/workflows/review.yml@v1
+    with:
+      reviewer: ${{ inputs.reviewer }}
+    secrets: inherit
+
+  fix:
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled'
+    uses: leanucci/workflows/.github/workflows/fix.yml@v1
+    secrets: inherit
