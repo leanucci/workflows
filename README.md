@@ -4,18 +4,18 @@ Shared agent workflows for my projects. The process is in [APPROACH.md](https://
 
 ## The Cycle
 
-1. **Spec:** An agent pushes `specs/NNN-name.md` on the branch `spec/NNN-name`. The spec workflow opens the PR as `github-actions[bot]` and requests the owner's review. The owner approves and merges.
-2. **Build:** The merge starts the build agent. It writes the code and opens a PR on the branch `build/NNN-name`.
+1. **Spec:** The `/spec` skill pushes `specs/NNN-name.md` on the branch `build/NNN-name`. It opens no PR.
+2. **Build:** The push starts the build agent. It adds the code to the same branch and opens one PR with the spec and the code.
 3. **Review:** The review agent reviews the PR. It adds `review-passed` or `changes-requested`. The default reviewer is Google Antigravity (Gemini). Set `reviewer: claude` in the caller to use Claude.
 4. **Fix:** `changes-requested` starts the fix agent. With Antigravity, `review.yml` calls `fix.yml` directly, because labels from `GITHUB_TOKEN` do not start workflows. It pushes fixes, and the push starts a new review. After 3 rounds, the PR gets `needs-human`.
-5. The owner gets a review request and merges.
+5. **Approve:** The owner gets a review request. The owner approves the spec and the code together, and merges.
 6. **Release:** The release workflow publishes when the version changes.
 
 ## Contents
 
 | Path | Use | Projects use it by |
 |---|---|---|
-| `.github/workflows/spec-pr.yml` | Opens spec PRs | Reference |
+| `.github/workflows/agent.yml` | Router: sends each event to build, review, or fix | Reference |
 | `.github/workflows/build.yml` | Build agent | Reference |
 | `.github/workflows/review.yml` | Review agent | Reference |
 | `.github/workflows/fix.yml` | Fix agent | Reference |
@@ -27,14 +27,14 @@ Shared agent workflows for my projects. The process is in [APPROACH.md](https://
 | `skeleton/` | Start files for every project | Copy |
 | `stacks/<stack>/` | Start files, rules, and required checks for one stack | Copy |
 | `skills/` | Claude Code skills: `/spec` and `/new-project` | Link into `~/.claude/skills/` |
-| `bin/setup-repo` | Labels, workflow permissions, and branch protection | Run one time |
+| `bin/setup-repo` | Labels and branch protection | Run one time |
 
 ## New Project
 
 Use the `/new-project` skill. It does these steps:
 
 1. Create the repo and clone it into a subfolder of `/Users/lean/work`.
-2. Copy `skeleton/` into the repo, including `.github/`.
+2. Copy `skeleton/` into the repo, including `.github/`. Its only caller is `.github/workflows/agent.yml`.
 3. Copy the stack files:
    - `stacks/<stack>/*.yml` into `.github/workflows/`.
    - `stacks/<stack>/gitignore` to `.gitignore`.
@@ -57,17 +57,16 @@ ln -s /Users/lean/work/workflows/skills/spec ~/.claude/skills/spec
 ln -s /Users/lean/work/workflows/skills/new-project ~/.claude/skills/new-project
 ```
 
-- `/spec`: turns an idea into a spec and pushes it on a `spec/` branch.
+- `/spec`: turns an idea into a spec and pushes it on a `build/` branch. The push starts the build.
 - `/new-project`: creates a project that is ready for the cycle.
 
 ## Setup Notes
 
 - **Agent identity.** The agents use the Claude GitHub App token. Events from that token start other workflows. Events from the default `GITHUB_TOKEN` do not.
-- **Push events.** The Claude action does not run on `push`. So the build workflow finds new specs on `push` and starts one `workflow_dispatch` run for each spec.
-- **Rerun a build:** `gh workflow run build.yml -f spec=specs/NNN-name.md`
-- **Branch protection.** A merge to `main` needs one approval and the required checks. Admins cannot bypass it. Bots open all PRs, so the owner can always approve. Agents never approve or merge.
-- **Workflow permissions.** `bin/setup-repo` lets workflows create PRs. GitHub has one setting for "create and approve", but no workflow here approves.
-- **CI on spec branches.** PRs that `GITHUB_TOKEN` opens do not start `pull_request` workflows. So CI also runs on push to `spec/**`, and its checks attach to the spec commit.
+- **One caller.** Projects call only `agent.yml`, from one caller file with all triggers and permissions. Changes to the shared workflows need no change in the projects.
+- **Push events.** The Claude action does not run on `push`. So `agent.yml` finds the new spec on a push to `build/*` and starts a `workflow_dispatch` run on that branch. Pushes from `claude[bot]` do not start a build.
+- **Rerun a build:** `gh workflow run agent.yml --ref build/NNN-name -f spec=specs/NNN-name.md`
+- **Branch protection.** A merge to `main` needs one approval and the required checks. Admins cannot bypass it. The build agent opens all PRs, so the owner can always approve. Agents never approve or merge.
 - **Models.** Build and fix use `claude-opus-5-5`. Review uses Google Antigravity with the SDK default Gemini model. A caller can change them with the `model` and `antigravity_model` inputs.
 - **Antigravity reviewer.** The SDK runs in read-only mode. It cannot change files or run commands. The agent returns its verdict as JSON, and the workflow posts the review with `GITHUB_TOKEN`.
 
