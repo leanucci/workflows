@@ -67,7 +67,7 @@ ln -s /Users/lean/work/workflows/skills/new-project ~/.claude/skills/new-project
 - **Push events.** The Claude action does not run on `push`. So `agent.yml` finds the new spec on a push to `build/*` and starts a `workflow_dispatch` run on that branch. Pushes from `claude[bot]` do not start a build.
 - **Rerun a build:** `gh workflow run agent.yml --ref build/NNN-name -f spec=specs/NNN-name.md`
 - **Branch protection.** A merge to `main` needs one approval and the required checks. Admins cannot bypass it. The build agent opens all PRs, so the owner can always approve. Agents never approve or merge.
-- **Models.** Build and fix use `claude-opus-5-5`. Review uses Google Antigravity with the SDK default Gemini model. A caller can change them with the `model` and `antigravity_model` inputs.
+- **Models.** Build and fix use `claude-opus-5-5`. Review uses Google Antigravity. It tries the SDK default Gemini model, then `gemini-3.7-flash`, then `gemini-2.5-flash`, with 6 minutes for each. A caller can change them with the `model` and `antigravity_models` inputs.
 - **Antigravity reviewer.** The SDK runs in read-only mode. It cannot change files or run commands. The agent returns its verdict as JSON, and the workflow posts the review with `GITHUB_TOKEN`.
 
 ## Versions

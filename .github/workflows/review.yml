@@ -22,10 +22,10 @@ on:
         description: "Claude model, for reviewer claude"
         type: string
         default: claude-sonnet-5-5
-      antigravity_model:
-        description: "Gemini model, for reviewer antigravity. Empty means the SDK default."
+      antigravity_models:
+        description: "Gemini models to try in order, for reviewer antigravity. \"default\" is the SDK default."
         type: string
-        default: ""
+        default: "default,gemini-3.7-flash,gemini-2.5-flash"
       max_turns:
         type: number
         default: 60
@@ -51,7 +51,7 @@ jobs:
       !github.event.pull_request.draft &&
       !contains(github.event.pull_request.labels.*.name, 'needs-human')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     concurrency:
       group: review-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -138,7 +138,7 @@ jobs:
         id: agy
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          AGY_MODEL: ${{ inputs.antigravity_model }}
+          AGY_MODELS: ${{ inputs.antigravity_models }}
           PROMPT_FILE: ${{ runner.temp }}/review/prompt.md
           BODY_FILE: ${{ runner.temp }}/review/body.md
         run: |
@@ -164,6 +164,12 @@ jobs:
           else
             gh pr edit "$PR" --add-label changes-requested
           fi
+
+      - name: Report a failed Antigravity review
+        if: failure() && steps.agy.outcome == 'failure'
+        run: |
+          gh pr edit "$PR" --add-label needs-human --add-reviewer "${{ github.repository_owner }}"
+          gh pr comment "$PR" --body "The Antigravity review failed. All Gemini models were busy or had errors. See the workflow log. To try again, remove \`needs-human\`, then close and reopen this pull request."
 
       # Both reviewers
 
