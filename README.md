@@ -5,10 +5,10 @@ Shared agent workflows for my projects. The process is in [APPROACH.md](https://
 ## The Cycle
 
 1. **Spec:** The `/spec` skill pushes `specs/NNN-name.md` on the branch `build/NNN-name`. It opens no PR.
-2. **Build:** The push starts the build agent. It adds the code to the same branch and opens one PR with the spec and the code.
-3. **Review:** The review agent reviews the PR. It adds `review-passed` or `changes-requested`.
-4. **Fix:** `changes-requested` starts the fix agent. It pushes fixes, and the push starts a new review. After 3 rounds, the PR gets `needs-human`.
-5. **Approve:** The owner gets a review request. The owner approves the spec and the code together, and merges.
+2. **Build:** The push starts the build agent. It adds the code, an entry in `JOURNAL.md`, and opens one PR with the spec and the code.
+3. **Review:** The review agent reviews the PR. It adds `review-passed` or `changes-requested`, and `needs-human` when the change is sensitive (authentication, secrets, or an external API, service, or tool).
+4. **Fix:** `changes-requested` starts the fix agent. It pushes fixes, and the push starts a new review. After 3 rounds, the PR gets `needs-human` instead, and the owner gets a review request.
+5. **Merge:** `review-passed` starts the merge agent. It merges the PR, unless `needs-human` is set or the spec sets `Human approval: required`. In that case, the owner gets a review request and approves and merges by hand.
 6. **Release:** The release workflow publishes when the version changes.
 
 ## Contents
@@ -19,6 +19,7 @@ Shared agent workflows for my projects. The process is in [APPROACH.md](https://
 | `.github/workflows/build.yml` | Build agent | Reference |
 | `.github/workflows/review.yml` | Review agent | Reference |
 | `.github/workflows/fix.yml` | Fix agent | Reference |
+| `.github/workflows/merge.yml` | Merge agent | Reference |
 | `.github/workflows/ci-ruby.yml` | Ruby tests | Reference |
 | `.github/workflows/release-ruby-gem.yml` | Gem release | Reference |
 | `.github/workflows/ci-node.yml` | Node tests: lint, type check, test, build | Reference |
@@ -64,7 +65,8 @@ ln -s /Users/lean/work/workflows/skills/new-project ~/.claude/skills/new-project
 - **One caller.** Projects call only `agent.yml`, from one caller file with all triggers and permissions. Changes to the shared workflows need no change in the projects.
 - **Push events.** The Claude action does not run on `push`. So `agent.yml` finds the new spec on a push to `build/*` and starts a `workflow_dispatch` run on that branch. Pushes from `claude[bot]` do not start a build.
 - **Rerun a build:** `gh workflow run agent.yml --ref build/NNN-name -f spec=specs/NNN-name.md`
-- **Branch protection.** A merge to `main` needs one approval and the required checks. Admins cannot bypass it. The build agent opens all PRs, so the owner can always approve. Agents never approve or merge.
+- **Branch protection.** A merge to `main` needs one approval and the required checks. Admins cannot bypass it. The build agent opens all PRs. The merge agent approves and merges with the default `GITHUB_TOKEN`, a different identity than the build agent's GitHub App token, so the approval counts. The LLM agents (build, review, fix) never approve or merge.
+- **Auto-merge.** `bin/setup-repo` turns on "Allow auto-merge" for the repo. The merge agent uses `gh pr merge --auto`, so the merge waits for the required checks even when they are still running.
 - **Models.** Build and fix use `claude-opus-5-5`. Review uses `claude-sonnet-5-5`, a different model, so the two agents make different mistakes. A caller can change them with the `model` input.
 
 ## Versions

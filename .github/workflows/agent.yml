@@ -8,7 +8,8 @@
 #   The Claude action does not support push events.
 # - workflow_dispatch with a spec: run the build agent on the current branch.
 # - pull_request opened or changed: run the review agent.
-# - pull_request labeled: run the fix agent (when the label is "changes-requested").
+# - pull_request labeled: run the fix agent (when the label is "changes-requested")
+#   or the merge agent (when the label is "review-passed").
 name: Agent
 
 on:
@@ -75,3 +76,7 @@ jobs:
     if: github.event_name == 'pull_request' && github.event.action == 'labeled'
     uses: leanucci/workflows/.github/workflows/fix.yml@v1
     secrets: inherit
+
+  merge:
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled'
+    uses: leanucci/workflows/.github/workflows/merge.yml@v1

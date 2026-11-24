@@ -1,6 +1,7 @@
 # NNN: Feature Title
 
 - **Release:** major | minor | patch | none
+- **Human approval:** required | not required
 
 ## Summary
 

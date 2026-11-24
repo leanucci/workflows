@@ -20,8 +20,10 @@ Do not use the pull request description as proof. Use the spec and the code.
 3. **Tests.** Tests check behavior, not only that code runs. A failure in the code makes a test fail.
 4. **Security.** Find injection, unsafe input handling, secrets in code, and unsafe dependencies.
 5. **Release.** The version change matches the "Release" field of the spec. `CHANGELOG.md` has an entry.
+   `JOURNAL.md` has an entry with the requirement and the key decisions.
 6. **Rules.** The code follows `CLAUDE.md` and the shared rules: documentation, commit messages, and style.
 7. **Assumptions.** Each assumption in the pull request description is reasonable for the spec.
+8. **Sensitive scope.** The diff adds or changes authentication, secrets, or a call to an external API, service, or tool.
 
 ## Severity
 
@@ -30,6 +32,14 @@ Do not use the pull request description as proof. Use the spec and the code.
 
 Do not praise the code. Do not report a problem that you cannot show in the code.
 
+## Human Approval
+
+A passed review merges automatically. Some changes still need the owner first.
+
+Check 8 found something: fill in "Needs Human" below with one short reason, and
+add the label with `gh pr edit <number> --add-label needs-human`, in addition to the verdict label.
+Leave "Needs Human" as "None." when check 8 found nothing.
+
 ## Review Format
 
 Write the review in Markdown with this format. Use plain `##` headings. Do not make headings bold.
@@ -37,6 +47,9 @@ Write the review in Markdown with this format. Use plain `##` headings. Do not m
 ```
 ## Verdict
 <PASS | CHANGES REQUESTED>
+
+## Needs Human
+<None. | One short reason the owner must approve before merge.>
 
 ## Blocking
 1. `<file>:<line>`: <problem>. <Why it is a problem.> <What to change.>

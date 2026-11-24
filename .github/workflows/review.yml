@@ -2,7 +2,9 @@
 #
 # Runs on build pull requests (branch "build/*") when they open or change.
 # The agent posts one review and sets one verdict label with the Claude GitHub
-# App token: "review-passed" or "changes-requested". The label starts fix.yml.
+# App token: "review-passed" or "changes-requested", and "needs-human" when a
+# human must approve before merge. "changes-requested" starts fix.yml.
+# "review-passed" starts merge.yml.
 name: Review
 
 on:
@@ -97,12 +99,10 @@ jobs:
             exit 1
           fi
 
-      - name: Ask the owner for review when the review passes
+      - name: Check that the review agent set a verdict
         run: |
           labels="$(gh pr view "$PR" --json labels --jq '.labels[].name')"
-          if echo "$labels" | grep -qx review-passed; then
-            gh pr edit "$PR" --add-reviewer "${{ github.repository_owner }}"
-          elif ! echo "$labels" | grep -qx changes-requested; then
+          if ! echo "$labels" | grep -qx review-passed && ! echo "$labels" | grep -qx changes-requested; then
             echo "The review agent did not set a verdict label."
             gh pr edit "$PR" --add-label needs-human --add-reviewer "${{ github.repository_owner }}"
             exit 1

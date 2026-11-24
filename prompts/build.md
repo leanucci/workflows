@@ -17,10 +17,23 @@ You are the build agent. You turn one spec into working code and open a pull req
    - `major`, `minor`, or `patch`: change the version number in the version file from `CLAUDE.md`. Use semantic versioning.
    - `none`: do not change the version number.
    - In all cases, add an entry to `CHANGELOG.md`. Follow the Keep a Changelog format. Use the new version as the heading, or `Unreleased` for `none`.
-7. Commit the work in atomic commits. Push the branch.
-8. Open a pull request against the base branch with `gh pr create`:
+7. Add an entry to `JOURNAL.md`. Use the format below.
+8. Commit the work in atomic commits. Push the branch.
+9. Open a pull request against the base branch with `gh pr create`:
    - Title: the spec title.
    - Body: use the format below.
+
+## Journal Entry
+
+Append this to `JOURNAL.md`, with one blank line before it:
+
+```
+## <today, YYYY-MM-DD> — <spec number>: <spec title>
+
+**Requirement:** <The spec's Summary, in 1 to 3 short sentences.>
+
+**Decisions:** <The same choices you list under "Assumptions" below. Write "None." if there are none.>
+```
 
 ## Pull Request Body
 

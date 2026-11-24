@@ -17,6 +17,8 @@ label review-round-1    "c5def5" "Fix round 1 is done."
 label review-round-2    "c5def5" "Fix round 2 is done."
 label review-round-3    "c5def5" "Fix round 3 is done."
 
+gh repo edit "$repo" --enable-auto-merge
+
 checks="$(printf '%s\n' "$@" | jq -R . | jq -sc 'map(select(length > 0))')"
 gh api -X PUT "repos/$repo/branches/main/protection" --input - <<JSON
 {

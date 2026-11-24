@@ -16,5 +16,6 @@ You have a limited tool set. Commands outside it fail.
 2. Set one verdict label:
    - CHANGES REQUESTED: `gh pr edit <number> --add-label changes-requested`
    - PASS: `gh pr edit <number> --add-label review-passed`
+3. When "Needs Human" is not "None.", also run `gh pr edit <number> --add-label needs-human`.
 
 Never use `--approve` or `--request-changes`. Never change code. Never push.

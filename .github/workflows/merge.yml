@@ -1,0 +1,68 @@
+# Merge agent.
+#
+# Runs when a build pull request gets the "review-passed" label.
+# Merges the pull request, unless the "needs-human" label is set or the
+# spec asks for human approval. The build agent already added the
+# JOURNAL.md entry, so this workflow only checks and merges.
+name: Merge
+
+on:
+  workflow_call: {}
+
+jobs:
+  merge:
+    if: >-
+      github.event.label.name == 'review-passed' &&
+      startsWith(github.event.pull_request.head.ref, 'build/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: merge-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Find the spec file
+        id: spec
+        run: |
+          spec="$(gh pr view "$PR" --json body --jq '.body' | grep -m1 -oE 'specs/[0-9][^`[:space:]]*\.md' || true)"
+          test -f "$spec" || { echo "No spec file found in the pull request body."; exit 1; }
+          echo "file=$spec" >> "$GITHUB_OUTPUT"
+
+      - name: Check for a block on auto-merge
+        id: block
+        env:
+          SPEC: ${{ steps.spec.outputs.file }}
+        run: |
+          labels="$(gh pr view "$PR" --json labels --jq '.labels[].name')"
+          reason=""
+          if echo "$labels" | grep -qx needs-human; then
+            reason="The review agent, or an earlier step, added the needs-human label."
+          elif grep -qiE '^\s*-\s*\*\*Human approval:\*\*\s*required' "$SPEC"; then
+            reason="The spec sets Human approval: required."
+          fi
+          if [ -n "$reason" ]; then
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+            echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          else
+            echo "blocked=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ask the owner when auto-merge is blocked
+        if: steps.block.outputs.blocked == 'true'
+        run: |
+          gh pr edit "$PR" --add-reviewer "$OWNER"
+          gh pr comment "$PR" --body "Review passed, but this pull request needs your approval before merge. ${{ steps.block.outputs.reason }}"
+
+      - name: Approve and merge
+        if: steps.block.outputs.blocked == 'false'
+        run: |
+          gh pr review "$PR" --approve --body "Review passed. Merging automatically."
+          gh pr merge "$PR" --auto --squash --delete-branch

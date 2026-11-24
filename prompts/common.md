@@ -37,5 +37,6 @@ Write all text in ASD-STE100 (Simplified Technical English): commit messages, pu
 ## Safety
 
 - Never print, log, or commit secrets.
-- Do not merge pull requests. Do not approve pull requests. Only the owner merges.
+- Do not merge pull requests. Do not approve pull requests.
+  The merge workflow does this for you, after a passed review, unless a label or the spec blocks it.
 - Do not push to `main`.

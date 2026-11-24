@@ -61,6 +61,8 @@ Ask a question only when you cannot write a testable spec without the answer. Ot
    - **Requirements:** numbered. Each one is testable. Group them with `###` headings when there are more than 8.
    - **Acceptance Criteria:** numbered. Use "Given ..., when ..., then ...". Each requirement has at least one criterion.
    - **Out of Scope:** what this spec does not include. Name later specs.
+   - **Human approval:** `required` when the owner must approve by hand before merge, for
+     example payments, auth, or legal text. Otherwise `not required`. Ask the user when unsure.
    - **Notes:** your choices, constraints, and links.
    - Describe behavior, not code. Name a library or a file only when the user asks, or when `CLAUDE.md` requires it.
    - Write in ASD-STE100: short sentences, active voice, simple words.
@@ -76,7 +78,11 @@ Ask a question only when you cannot write a testable spec without the answer. Ot
 9. **Report the build.**
    - The push starts the Agent workflow. It starts the build in about 30 seconds. Find the run with `gh run list --workflow agent.yml --branch build/NNN-name`.
    - Give the user the run URL, the Release value, and your choices from "Notes".
-   - Tell the user what happens next: the build agent opens one pull request with the spec and the code. The review agent reviews it. Then GitHub asks the owner to approve and merge it.
+   - Tell the user what happens next: the build agent adds a `JOURNAL.md` entry and opens one pull
+     request with the spec and the code. The review agent reviews it. A passed review merges on its
+     own. The owner gets a review request instead, only when the fix loop stops after 3
+     rounds, the spec sets `Human approval: required`, or the review agent finds a sensitive change
+     (authentication, secrets, or an external API, service, or tool).
    - Tell the user how to stop the build: `gh run cancel <run id>`.
 
 ## Changes to a Spec
