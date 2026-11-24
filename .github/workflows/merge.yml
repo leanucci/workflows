@@ -31,9 +31,11 @@ jobs:
 
       - name: Find the spec file
         id: spec
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
-          spec="$(gh pr view "$PR" --json body --jq '.body' | grep -m1 -oE 'specs/[0-9][^`[:space:]]*\.md' || true)"
-          test -f "$spec" || { echo "No spec file found in the pull request body."; exit 1; }
+          spec="specs/${BRANCH#build/}.md"
+          test -f "$spec" || { echo "No spec file at $spec for branch $BRANCH."; exit 1; }
           echo "file=$spec" >> "$GITHUB_OUTPUT"
 
       - name: Check for a block on auto-merge
