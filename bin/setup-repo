@@ -23,7 +23,7 @@ checks="$(printf '%s\n' "$@" | jq -R . | jq -sc 'map(select(length > 0))')"
 gh api -X PUT "repos/$repo/branches/main/protection" --input - <<JSON
 {
   "required_status_checks": { "strict": false, "contexts": $checks },
-  "enforce_admins": true,
+  "enforce_admins": false,
   "required_pull_request_reviews": { "required_approving_review_count": 1 },
   "restrictions": null
 }

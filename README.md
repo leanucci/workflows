@@ -66,7 +66,15 @@ ln -s /Users/lean/work/workflows/skills/new-project ~/.claude/skills/new-project
 - **One caller.** Projects call only `agent.yml`, from one caller file with all triggers and permissions. Changes to the shared workflows need no change in the projects.
 - **Push events.** The Claude action does not run on `push`. So `agent.yml` finds the new spec on a push to `build/*` and starts a `workflow_dispatch` run on that branch. Pushes from `claude[bot]` do not start a build.
 - **Rerun a build:** `gh workflow run agent.yml --ref build/NNN-name -f spec=specs/NNN-name.md`
-- **Branch protection.** A merge to `main` needs one approval and the required checks. Admins cannot bypass it. The build agent opens all PRs. The merge agent approves and merges with the default `GITHUB_TOKEN`, a different identity than the build agent's GitHub App token, so the approval counts. The LLM agents (build, review, fix) never approve or merge.
+- **Branch protection.** A merge to `main` needs one approval and the required checks.
+  `enforce_admins` is off, so the owner can merge by hand when a pull request needs human
+  approval, since a real review already happened.
+- **Identities.** The build agent opens pull requests under the project owner's own identity
+  (the Claude Code OAuth token), not a bot. GitHub blocks a self-review, so the owner can never
+  approve or request changes on these pull requests directly. The review agent approves a PASS
+  verdict as the separate `claude` bot identity, which satisfies the approval requirement
+  without being a self-review. The merge agent then merges with the default `GITHUB_TOKEN`, a
+  third identity.
 - **Auto-merge.** `bin/setup-repo` turns on "Allow auto-merge" for the repo. The merge agent uses `gh pr merge --auto`, so the merge waits for the required checks even when they are still running.
 - **Models.** Build and fix use `claude-opus-5-5`. Review uses `claude-sonnet-5-5`, a different model, so the two agents make different mistakes. A caller can change them with the `model` input.
 

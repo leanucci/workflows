@@ -38,5 +38,6 @@ Write all text in ASD-STE100 (Simplified Technical English): commit messages, pu
 
 - Never print, log, or commit secrets.
 - Do not merge pull requests. Do not approve pull requests.
-  The merge workflow does this for you, after a passed review, unless a label or the spec blocks it.
+  The review agent approves a pull request only as part of posting a PASS verdict.
+  The merge workflow merges for you, after a passed review, unless a label or the spec blocks it.
 - Do not push to `main`.

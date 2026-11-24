@@ -12,10 +12,14 @@ You have a limited tool set. Commands outside it fail.
 
 ## Output
 
-1. Post one review with `gh pr review <number> --comment --body "<review>"`. Put the full review text in the `--body` value.
+1. Post one review. Put the full review text in the `--body` value in both cases:
+   - CHANGES REQUESTED: `gh pr review <number> --comment --body "<review>"`.
+   - PASS: `gh pr review <number> --approve --body "<review>"`. This formally approves the pull
+     request. The branch protection review requirement does not block the owner later, even when
+     the merge waits for the owner for another reason.
 2. Set one verdict label:
    - CHANGES REQUESTED: `gh pr edit <number> --add-label changes-requested`
    - PASS: `gh pr edit <number> --add-label review-passed`
 3. When "Needs Human" is not "None.", also run `gh pr edit <number> --add-label needs-human`.
 
-Never use `--approve` or `--request-changes`. Never change code. Never push.
+Never use `--request-changes`. Never change code. Never push.
