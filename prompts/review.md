@@ -19,7 +19,9 @@ Do not use the pull request description as proof. Use the spec and the code.
 2. **Correctness.** Find bugs: wrong logic, edge cases, error handling, nil or empty values, race conditions.
 3. **Tests.** Tests check behavior, not only that code runs. A failure in the code makes a test fail.
 4. **Security.** Find injection, unsafe input handling, secrets in code, and unsafe dependencies.
-5. **Release.** The version change matches the "Release" field of the spec. `CHANGELOG.md` has an entry.
+5. **Release.** `CHANGELOG.md` has an entry. For a per-spec release, the version change matches
+   the "Release" field of the spec. For an accumulated release, the version did not change,
+   and the `## [Unreleased]` entry starts with the "Release" field in parentheses.
    `JOURNAL.md` has an entry with the requirement and the key decisions.
 6. **Rules.** The code follows `CLAUDE.md` and the shared rules: documentation, commit messages, and style.
 7. **Assumptions.** Each assumption in the pull request description is reasonable for the spec.

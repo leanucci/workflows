@@ -23,9 +23,19 @@ Append this section to the project `CLAUDE.md`.
 - Use TSDoc comments for exported functions, classes, and types.
 - Keep secrets, certificates, and private keys out of the repo. Read them from environment variables or from files the caller provides.
 
+### Release Policy
+
+- Releases happen by hand, with the `/release` skill. Specs accumulate on `main` until then.
+- The build agent never changes the version in `package.json`. Each entry it adds under
+  `## [Unreleased]` in `CHANGELOG.md` starts with its severity in parentheses, from the spec's
+  "Release" field: `(major)`, `(minor)`, or `(patch)`.
+- `/release` computes the new version from the highest severity under `## [Unreleased]`, moves
+  those entries under that version with today's date, and sets the version in `package.json`.
+
 ### Publish
 
 - The package publishes to the public npm registry, under the name in `package.json`.
 - Publish only when the `version` field in `package.json` changes. `release.yml` does this.
+  `/release` is the only thing that changes it.
 - Store the npm token in the `NPM_TOKEN` repo secret.
 - Set `"files"` in `package.json` to the built output only, for example `["dist"]`.
