@@ -16,16 +16,16 @@ The process is in `/Users/lean/work/portfolio/APPROACH.md`.
 
 ## Find the Project
 
-`/Users/lean/work/portfolio/PROJECTS.md` lists all projects. Use only projects with `Cycle: agent`.
+Use the first rule that gives one project. Check rules 1 and 2 first: they cost no file read.
 
-Use the first rule that gives one project:
+1. **Session folder.** The session runs inside the local copy of a project.
+2. **Conversation.** Earlier messages in this session talk about one project.
+3. **Name.** The request names a project, for example "add sign-in to pomodoro".
+4. **Description.** The request matches the summary of exactly one project, for example "the timer app".
 
-1. **Name.** The request names a project, for example "add sign-in to pomodoro".
-2. **Description.** The request matches the summary of exactly one project, for example "the timer app".
-3. **Session folder.** The session runs inside the local copy of a project.
-4. **Conversation.** Earlier messages in this session talk about one project.
+For rules 3 and 4, read `/Users/lean/work/portfolio/PROJECTS.md`. It lists all projects. Use only projects with `Cycle: agent`.
 
-If no rule gives exactly one project, ask the user. List the projects with `Cycle: agent`, with their summaries. Do not guess.
+If no rule gives exactly one project, read `PROJECTS.md` and ask the user. List the projects with `Cycle: agent`, with their summaries. Do not guess.
 
 Before you write the spec, state the project in one line, for example "Project: pomodoro". Then the user can correct it.
 
@@ -41,7 +41,10 @@ Ask a question only when you cannot write a testable spec without the answer. Ot
 2. **Read the context.**
    - `CLAUDE.md`: the stack, the rules, and the version file.
    - `specs/TEMPLATE.md`: the format.
-   - All files in `specs/`: earlier specs, so you do not repeat work and you continue the numbers.
+   - The title and the `## Summary` section of each file in `specs/`. Use the titles for the
+     number. Use the title and the summary together to find specs that overlap the idea.
+   - The full text of a spec only when its title or its summary overlaps the idea, so you do not
+     repeat work.
    - The code, when the idea changes existing behavior.
 
 3. **Set the number and the name.**
