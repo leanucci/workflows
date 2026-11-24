@@ -23,6 +23,7 @@ Shared agent workflows for my projects. The process is in [APPROACH.md](https://
 | `.github/workflows/ci-ruby.yml` | Ruby tests | Reference |
 | `.github/workflows/release-ruby-gem.yml` | Gem release | Reference |
 | `.github/workflows/ci-node.yml` | Node tests: lint, type check, test, build | Reference |
+| `.github/workflows/release-npm.yml` | npm package release | Reference |
 | `prompts/` | Agent instructions | Reference |
 | `skeleton/` | Start files for every project | Copy |
 | `stacks/<stack>/` | Start files, rules, and required checks for one stack | Copy |

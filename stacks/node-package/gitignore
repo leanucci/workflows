@@ -1,0 +1,20 @@
+/node_modules/
+/dist/
+/coverage/
+*.tsbuildinfo
+
+# Environment files. Never commit them.
+.env
+.env*.local
+
+# Certificates and keys. Never commit them.
+*.pem
+*.key
+*.crt
+*-pkey
+*-cert
+*-csr
+*-req
+
+npm-debug.log*
+.DS_Store

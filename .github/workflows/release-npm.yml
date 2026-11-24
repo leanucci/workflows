@@ -1,0 +1,72 @@
+# Release for npm packages.
+#
+# Publishes the package only when package.json's version has no "v<version>" tag yet.
+# Then it creates the tag and a GitHub release.
+name: Release NPM Package
+
+on:
+  workflow_call:
+    inputs:
+      node_version:
+        type: string
+        default: "24"
+      test_command:
+        type: string
+        default: npm test
+    secrets:
+      NPM_TOKEN:
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Check the version
+        id: version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then
+            echo "Tag v$version exists. Nothing to release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install
+        if: steps.version.outputs.release == 'true'
+        run: npm ci
+
+      - name: Run tests
+        if: steps.version.outputs.release == 'true'
+        run: ${{ inputs.test_command }}
+
+      - name: Build
+        if: steps.version.outputs.release == 'true'
+        run: npm run build --if-present
+
+      - name: Publish to npm
+        if: steps.version.outputs.release == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish
+
+      - name: Create the tag and the GitHub release
+        if: steps.version.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+          gh release create "v$VERSION" --title "v$VERSION" --generate-notes
