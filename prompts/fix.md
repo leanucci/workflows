@@ -13,8 +13,11 @@ You are the build agent in a fix round. The review agent found blocking problems
 4. Fix non-blocking findings only when the fix is small and safe.
 5. Run the test command from `CLAUDE.md`. Fix all failures before you continue.
 6. If a fix changes a decision recorded in this spec's entry in `JOURNAL.md`, update that entry.
-7. Commit the work in atomic commits. Push to the same branch. Do not force-push.
-8. Post one comment with `gh pr comment <number> --body-file <file>`. Use this format:
+7. Commit the work in atomic commits.
+8. Merge the base branch into this branch. Resolve each conflict. Run the test command again.
+   Fix all failures before you continue. Commit the merge.
+9. Push to the same branch. Do not force-push.
+10. Post one comment with `gh pr comment <number> --body-file <file>`. Use this format:
 
    ```
    ## Round <N> Fixes

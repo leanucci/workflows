@@ -10,6 +10,16 @@ You have a limited tool set. Commands outside it fail.
 - Allowed commands: `gh pr view`, `gh pr diff`, `gh pr review`, `gh pr edit`, `gh pr checks`, `gh api`, `git log`, `git diff`, `git show`, `git status`, `git rev-parse`, and `ls`.
 - You cannot write files. You cannot run tests. Use the CI result: `gh pr checks <number>`.
 
+## Checking for a Merge Conflict
+
+Run `gh pr view <number> --json mergeable,mergeStateStatus`.
+`mergeable: false`, or `mergeStateStatus: "DIRTY"`, means a conflict.
+The field can say `"UNKNOWN"` while GitHub still computes it. Wait and check once more before
+you decide there is a conflict.
+
+A conflict found: run `gh pr review <number> --comment --body "<reason>"` with a one-line
+reason. Run `gh pr edit <number> --add-label needs-human`. Stop. Do not run the steps below.
+
 ## Output
 
 1. Post one review. Put the full review text in the `--body` value in both cases:

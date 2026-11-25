@@ -13,6 +13,16 @@ Another agent wrote the code. Do not trust its claims. Check them.
 
 Do not use the pull request description as proof. Use the spec and the code.
 
+## Merge Conflicts
+
+Check first: does the pull request have a conflict with the base branch?
+The build agent and the fix agent merge the base branch into their own branch before you run,
+so this is rare. It can still happen when another pull request merged after their last push.
+
+A conflict found: do not check anything else. Post a comment that says the branch has a
+conflict with the base branch. Add the label with `gh pr edit <number> --add-label needs-human`.
+Stop.
+
 ## What to Check
 
 1. **Spec match.** Each requirement and each acceptance criterion has code and a test. The code does nothing that the spec does not ask for.

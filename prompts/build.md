@@ -23,10 +23,13 @@ You are the build agent. You turn one spec into working code and open a pull req
      under `## [Unreleased]`, with the Release field in parentheses at the start, for example
      `- (minor) Add the WSAA client.`. Follow the Keep a Changelog format otherwise.
 7. Add an entry to `JOURNAL.md`. Use the format below.
-8. Commit the work in atomic commits. Push the branch.
-9. Open a pull request against the base branch with `gh pr create`:
-   - Title: the spec title.
-   - Body: use the format below.
+8. Commit the work in atomic commits.
+9. Merge the base branch into this branch. Resolve each conflict. Run the test command again.
+   Fix all failures before you continue. Commit the merge.
+10. Push the branch.
+11. Open a pull request against the base branch with `gh pr create`:
+    - Title: the spec title.
+    - Body: use the format below.
 
 ## Journal Entry
 
