@@ -37,5 +37,17 @@ Append this section to the project `CLAUDE.md`.
 - The package publishes to the public npm registry, under the name in `package.json`.
 - Publish only when the `version` field in `package.json` changes. `release.yml` does this.
   `/release` is the only thing that changes it.
-- Store the npm token in the `NPM_TOKEN` repo secret.
+- `release.yml` publishes with npm trusted publishing (OIDC). It needs no npm token.
 - Set `"files"` in `package.json` to the built output only, for example `["dist"]`.
+
+### First Release Setup
+
+npm needs the package to exist before it accepts a Trusted Publisher for it. Do this once,
+by hand, before the first automated release:
+
+1. Run `npm publish` from this project, logged in to npm as a human. This publishes the
+   first version.
+2. On npmjs.com, open the package's Settings page and add a Trusted Publisher: GitHub
+   Actions, this repository, workflow filename `release.yml`. Leave the environment blank.
+3. Tell the owner to create the matching git tag and GitHub release by hand for the version
+   from step 1, since the automated workflow did not run for it.
