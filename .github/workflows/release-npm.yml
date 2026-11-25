@@ -1,12 +1,21 @@
 # Release for npm packages.
 #
-# Publishes the package only when package.json's version has no "v<version>" tag yet.
-# Then it creates the tag and a GitHub release.
+# Stages a publish, with npm trusted publishing (OIDC), when package.json's
+# version has no "v<version>" tag yet. No npm token.
 #
-# Publishes with npm trusted publishing (OIDC). No npm token.
+# A staged publish is not live. The owner approves it by hand, from their own
+# machine, with `npm stage approve <stage-id>`. 2FA always applies to that
+# step; no CI identity can do it. Find the stage ID with
+# `npm stage list <package-name>` if it is not in this job's log.
+#
+# The owner creates the "v<version>" tag and the GitHub release after they
+# approve the staged publish. This workflow does not do that for you,
+# because the package is not live until the owner approves it.
+#
 # The package must have a Trusted Publisher set on npmjs.com for this exact
-# repository and workflow file before its first automated release. See
-# stacks/node-package/RULES.md for the one-time setup.
+# repository and workflow file before its first automated release.
+# "npm stage publish" is always allowed, so this needs no extra setting.
+# See stacks/node-package/RULES.md for the one-time setup.
 name: Release NPM Package
 
 on:
@@ -66,16 +75,24 @@ jobs:
         if: steps.version.outputs.release == 'true'
         run: npm install -g npm@latest
 
-      - name: Publish to npm
+      - name: Stage the publish
         if: steps.version.outputs.release == 'true'
-        run: npm publish
+        run: npm stage publish
 
-      - name: Create the tag and the GitHub release
+      - name: Tell the owner to approve the staged publish
         if: steps.version.outputs.release == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          git tag "v$VERSION"
-          git push origin "v$VERSION"
-          gh release create "v$VERSION" --title "v$VERSION" --generate-notes
+          {
+            echo "## v$VERSION is staged, not live"
+            echo
+            echo "Approve it by hand, from your own machine. 2FA always applies."
+            echo
+            echo '```'
+            echo "npm stage list $(node -p "require('./package.json').name")"
+            echo "npm stage approve <stage-id>"
+            echo '```'
+            echo
+            echo "After it is approved, create the \"v$VERSION\" tag and the GitHub release."
+          } >> "$GITHUB_STEP_SUMMARY"
