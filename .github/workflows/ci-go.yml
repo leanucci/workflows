@@ -1,4 +1,7 @@
 # CI for Go projects: vet, test, and build.
+#
+# Each step runs only when the repo has a .go file.
+# With no .go file (a new repo before the first build), the job passes.
 name: CI Go
 
 on:
@@ -15,16 +18,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for Go source
+        id: project
+        run: |
+          if [ -n "$(find . -name '*.go' -print -quit)" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No .go files. Nothing to build."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/setup-go@v5
+        if: steps.project.outputs.exists == 'true'
         with:
           go-version: ${{ inputs.go_version }}
           cache: true
 
       - name: Vet
+        if: steps.project.outputs.exists == 'true'
         run: go vet ./...
 
       - name: Test
+        if: steps.project.outputs.exists == 'true'
         run: go test ./...
 
       - name: Build
+        if: steps.project.outputs.exists == 'true'
         run: go build ./...
