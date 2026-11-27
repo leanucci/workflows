@@ -82,3 +82,20 @@ jobs:
       - name: Merge
         if: steps.block.outputs.blocked == 'false'
         run: gh pr merge "$PR" --auto --squash --delete-branch
+
+      - name: Close the issue
+        if: steps.block.outputs.blocked == 'false'
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          case "$BRANCH" in
+            build/issue-*)
+              issue="${BRANCH#build/issue-}"
+              state="$(gh pr view "$PR" --json state --jq .state)"
+              if [ "$state" = "MERGED" ]; then
+                gh issue close "$issue" --comment "Closed by #$PR."
+              else
+                echo "Pull request state is $state, not MERGED yet. Not closing issue #$issue."
+              fi
+              ;;
+          esac
