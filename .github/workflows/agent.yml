@@ -6,7 +6,10 @@
 # Events:
 # - push to "build/*" by a person: find the new spec and start the build with workflow_dispatch.
 #   The Claude action does not support push events.
-# - workflow_dispatch with a spec: run the build agent on the current branch.
+# - issues labeled "ready": create a "build/issue-<number>" branch and start the build the
+#   same way, with the issue number instead of a spec file. Only a caller that adds the
+#   "issues" trigger sends this event; a caller without it (the skeleton default) never does.
+# - workflow_dispatch with a spec or an issue: run the build agent on the current branch.
 # - pull_request opened or changed: run the review agent.
 # - pull_request labeled: run the fix agent (when the label is "changes-requested")
 #   or the merge agent (when the label is "review-passed").
@@ -17,6 +20,10 @@ on:
     inputs:
       spec:
         description: "Spec file to build. Set only on workflow_dispatch."
+        type: string
+        default: ""
+      issue:
+        description: "Issue number to build. Set only on workflow_dispatch."
         type: string
         default: ""
     secrets:
@@ -30,6 +37,7 @@ jobs:
     if: >-
       github.event_name == 'push' &&
       startsWith(github.ref_name, 'build/') &&
+      !startsWith(github.ref_name, 'build/issue-') &&
       github.actor != 'claude[bot]'
     runs-on: ubuntu-latest
     env:
@@ -60,11 +68,44 @@ jobs:
           echo "Starting the build for $specs on $BRANCH"
           gh workflow run "$caller" --ref "$BRANCH" -f spec="$specs"
 
+  start-build-from-issue:
+    if: >-
+      github.event_name == 'issues' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'ready'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE: ${{ github.event.issue.number }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Start the build for the issue
+        run: |
+          branch="build/issue-$ISSUE"
+          if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
+            echo "A pull request for $branch is open. The review handles new pushes."
+            exit 0
+          fi
+          if ! git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
+            git checkout -b "$branch"
+            git push origin "$branch"
+          fi
+          # WORKFLOW_REF is "owner/repo/.github/workflows/<file>@<ref>".
+          caller="$(basename "${WORKFLOW_REF%@*}")"
+          echo "Starting the build for issue #$ISSUE on $branch"
+          gh workflow run "$caller" --ref "$branch" -f issue="$ISSUE"
+
   build:
-    if: github.event_name == 'workflow_dispatch' && inputs.spec != ''
+    if: github.event_name == 'workflow_dispatch' && (inputs.spec != '' || inputs.issue != '')
     uses: leanucci/workflows/.github/workflows/build.yml@v1
     with:
       spec: ${{ inputs.spec }}
+      issue: ${{ inputs.issue }}
     secrets: inherit
 
   review:

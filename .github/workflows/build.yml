@@ -1,8 +1,8 @@
 # Build agent.
 #
 # Runs the build agent on one spec, on the current "build/*" branch.
-# The branch already contains the spec. The agent adds the code, pushes,
-# and opens one pull request with the spec and the code.
+# The branch already contains the spec file, or is empty and the task names an issue instead.
+# The agent adds the code, pushes, and opens one pull request with the spec and the code.
 # agent.yml calls this workflow on a workflow_dispatch event.
 name: Build
 
@@ -12,7 +12,11 @@ on:
       spec:
         description: "Spec file to build, for example specs/002-name.md."
         type: string
-        required: true
+        default: ""
+      issue:
+        description: "Issue number to build, instead of a spec file."
+        type: string
+        default: ""
       model:
         type: string
         default: claude-opus-5-5
@@ -44,15 +48,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check the spec file
+      - name: Check the spec
         env:
           SPEC: ${{ inputs.spec }}
+          ISSUE: ${{ inputs.issue }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          case "$SPEC" in
-            specs/[0-9]*.md) ;;
-            *) echo "Spec path must match specs/NNN-name.md: $SPEC"; exit 1 ;;
-          esac
-          test -f "$SPEC" || { echo "Spec file not found: $SPEC"; exit 1; }
+          if [ -n "$SPEC" ]; then
+            case "$SPEC" in
+              specs/[0-9]*.md) ;;
+              *) echo "Spec path must match specs/NNN-name.md: $SPEC"; exit 1 ;;
+            esac
+            test -f "$SPEC" || { echo "Spec file not found: $SPEC"; exit 1; }
+          elif [ -n "$ISSUE" ]; then
+            state="$(gh issue view "$ISSUE" --json state --jq .state)"
+            [ "$state" = "OPEN" ] || { echo "Issue #$ISSUE is not open."; exit 1; }
+          else
+            echo "Neither a spec file nor an issue was given."
+            exit 1
+          fi
 
       - name: Load prompts
         id: prompt
@@ -83,7 +97,7 @@ jobs:
             - Repository: ${{ github.repository }}
             - Base branch: ${{ github.event.repository.default_branch }}
             - Branch: ${{ github.ref_name }}
-            - Spec file: ${{ inputs.spec }}
+            - ${{ inputs.spec != '' && format('Spec file: {0}', inputs.spec) || format('Spec issue: #{0}', inputs.issue) }}
           claude_args: |
             --model ${{ inputs.model }}
             --max-turns ${{ inputs.max_turns }}
