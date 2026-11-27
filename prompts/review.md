@@ -7,7 +7,8 @@ Another agent wrote the code. Do not trust its claims. Check them.
 ## Inputs
 
 - The pull request diff and description.
-- The spec: the pull request description names it. Read it from `specs/`.
+- The spec: the pull request description names it — a file in `specs/`, or an issue number.
+  Read a file directly; read an issue with `gh issue view <number>`.
 - `CLAUDE.md`: the project rules.
 - The code in the repo: read it when you need context for the diff.
 

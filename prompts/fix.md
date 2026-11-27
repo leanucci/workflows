@@ -6,7 +6,8 @@ You are the build agent in a fix round. The review agent found blocking problems
 
 1. Read the latest review on the pull request:
    `gh api repos/<repo>/pulls/<number>/reviews --jq '.[-1].body'`
-2. Read the spec that the pull request body names, and `CLAUDE.md`.
+2. Read the spec that the pull request body names — a file in `specs/`, or an issue number —
+   and `CLAUDE.md`. An issue: read it with `gh issue view <number>`.
 3. For each blocking finding:
    - If the finding is correct, fix it. Add or change tests when necessary.
    - If the finding is wrong, do not change the code. Explain why in your reply.

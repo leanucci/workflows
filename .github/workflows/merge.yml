@@ -29,25 +29,36 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: Find the spec file
+      - name: Find the spec
         id: spec
         env:
           BRANCH: ${{ github.event.pull_request.head.ref }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          spec="specs/${BRANCH#build/}.md"
-          test -f "$spec" || { echo "No spec file at $spec for branch $BRANCH."; exit 1; }
-          echo "file=$spec" >> "$GITHUB_OUTPUT"
+          echo "body<<__SPEC_BODY_EOF__" >> "$GITHUB_OUTPUT"
+          case "$BRANCH" in
+            build/issue-*)
+              issue="${BRANCH#build/issue-}"
+              gh issue view "$issue" --json body --jq .body >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              spec="specs/${BRANCH#build/}.md"
+              test -f "$spec" || { echo "No spec file at $spec for branch $BRANCH."; exit 1; }
+              cat "$spec" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+          echo "__SPEC_BODY_EOF__" >> "$GITHUB_OUTPUT"
 
       - name: Check for a block on auto-merge
         id: block
         env:
-          SPEC: ${{ steps.spec.outputs.file }}
+          SPEC_BODY: ${{ steps.spec.outputs.body }}
         run: |
           labels="$(gh pr view "$PR" --json labels --jq '.labels[].name')"
           reason=""
           if echo "$labels" | grep -qx needs-human; then
             reason="The review agent, or an earlier step, added the needs-human label."
-          elif grep -qiE '^\s*-\s*\*\*Human approval:\*\*\s*required' "$SPEC"; then
+          elif printf '%s' "$SPEC_BODY" | grep -qiE '^\s*-\s*\*\*Human approval:\*\*\s*required'; then
             reason="The spec sets Human approval: required."
           fi
           if [ -n "$reason" ]; then
