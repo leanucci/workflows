@@ -33,6 +33,11 @@ jobs:
       - name: Check the version
         id: version
         run: |
+          if [ -z "$(find . -name '*.go' -print -quit)" ]; then
+            echo "No .go files. Nothing to release yet."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           version="$(cat VERSION)"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           if git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then
