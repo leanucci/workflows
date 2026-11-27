@@ -1,0 +1,13 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    uses: leanucci/workflows/.github/workflows/deploy-cloudflare-worker.yml@v1
+    secrets: inherit
