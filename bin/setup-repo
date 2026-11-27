@@ -11,6 +11,7 @@ shift
 
 label() { gh label create "$1" --repo "$repo" --color "$2" --description "$3" --force; }
 label ready              "0e8a16" "An issue the planning agent cleared to build."
+label held               "fbca04" "The planning agent is holding this issue back."
 label changes-requested "d93f0b" "The review agent found blocking problems."
 label review-passed     "0e8a16" "The review agent found no blocking problems."
 label needs-human       "b60205" "The agents stopped. The owner must decide."
