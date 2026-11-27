@@ -74,8 +74,10 @@ jobs:
           gh pr edit "$PR" --add-reviewer "$OWNER"
           gh pr comment "$PR" --body "Review passed, but this pull request needs your approval before merge. ${{ steps.block.outputs.reason }}"
 
-      - name: Approve and merge
+      # GitHub refuses to let the default token approve a pull request, on every repo this
+      # project has checked. The review agent's own approval (prompts/review-claude.md, with
+      # its own pinned identity) already satisfies the required review count, so this step
+      # only merges.
+      - name: Merge
         if: steps.block.outputs.blocked == 'false'
-        run: |
-          gh pr review "$PR" --approve --body "Review passed. Merging automatically."
-          gh pr merge "$PR" --auto --squash --delete-branch
+        run: gh pr merge "$PR" --auto --squash --delete-branch
